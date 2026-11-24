@@ -7,6 +7,13 @@
 Players::Players(QObject *parent) : Players(QDBusConnection::sessionBus(), parent) {}
 
 Players::Players(const QDBusConnection &bus, QObject *parent) : QObject(parent), m_bus(bus) {
+    // Spotify takes a few seconds to start; past this it isn't coming.
+    m_startingTimeout.setSingleShot(true);
+    m_startingTimeout.setInterval(30000);
+    connect(&m_startingTimeout, &QTimer::timeout, this, [this] {
+        m_startingSpotify = false;
+        emit startingSpotifyChanged();
+    });
     if (!m_bus.isConnected())
         return;
     m_bus.connect("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "NameOwnerChanged", this,
@@ -56,6 +63,11 @@ void Players::addService(const QString &service) {
     for (auto *player : std::as_const(m_players))
         if (player->service() == service)
             return;
+    if (m_startingSpotify && service.contains("spotify", Qt::CaseInsensitive)) {
+        m_startingTimeout.stop();
+        m_startingSpotify = false;
+        emit startingSpotifyChanged();
+    }
     auto *player = new MprisPlayer(service, m_bus, this);
     connect(player, &MprisPlayer::statusChanged, this, &Players::reconsider);
     connect(player, &MprisPlayer::failed, this, &Players::failed);
@@ -161,4 +173,28 @@ void Players::playUri(const QString &uri) {
                                          : QProcess::startDetached("spotify", {"--uri=" + uri});
     if (!started)
         emit failed(tr("Couldn't start Spotify."));
+}
+
+bool Players::hasSpotify() const {
+    for (auto *player : m_players)
+        if (player->service().contains("spotify", Qt::CaseInsensitive))
+            return true;
+    return false;
+}
+
+void Players::startSpotifyInBackground() {
+    if (!m_bus.isConnected() || !spotifyInstalled() || hasSpotify() || m_startingSpotify)
+        return;
+    // Launched plainly, not through omarchy-launch-or-focus, so its window
+    // isn't focused; a Hyprland rule can then keep it out of sight.
+    const QString uwsm = QStandardPaths::findExecutable("uwsm-app");
+    const bool started = !uwsm.isEmpty() ? QProcess::startDetached(uwsm, {"--", "spotify"})
+                                         : QProcess::startDetached("spotify", {});
+    if (!started) {
+        emit failed(tr("Couldn't start Spotify."));
+        return;
+    }
+    m_startingSpotify = true;
+    m_startingTimeout.start();
+    emit startingSpotifyChanged();
 }

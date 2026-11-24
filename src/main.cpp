@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
 
     QGuiApplication app(argc, argv);
     app.setApplicationName("tono");
-    app.setApplicationVersion("0.2.0");
+    app.setApplicationVersion("0.3.0");
 
     // Matches the window to tono.desktop, so the compositor (Wayland app_id)
     // and the launcher pick up the installed icon.
@@ -63,6 +63,10 @@ int main(int argc, char *argv[]) {
     players.setFollowPlaying(settings.followPlaying());
     QObject::connect(&settings, &Settings::changed, &players,
                      [&] { players.setFollowPlaying(settings.followPlaying()); });
+
+    // Spotify is what plays, so have it ready behind the scenes.
+    if (settings.startSpotify())
+        players.startSpotifyInBackground();
 
     Lyrics lyrics;
     Spotify spotify;

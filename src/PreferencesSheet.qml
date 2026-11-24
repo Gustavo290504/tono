@@ -42,124 +42,138 @@ Popup {
         backdrop: sheet.backdrop
     }
 
-    contentItem: ColumnLayout {
-        spacing: 6
+    // Scrolls once it's taller than the window, as on a small screen or in a
+    // language with longer words.
+    height: Math.min(implicitHeight, (parent ? parent.height : 800) - 24)
 
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.bottomMargin: 6
-            Label {
+    contentItem: Flickable {
+        implicitHeight: column.implicitHeight
+        contentHeight: column.implicitHeight
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+
+        ColumnLayout {
+            id: column
+            width: parent.width
+            spacing: 6
+
+            RowLayout {
                 Layout.fillWidth: true
-                text: qsTr("Preferences")
-                font.pixelSize: 20
-                font.weight: Font.Bold
-                color: sheet.ink
+                Layout.bottomMargin: 6
+                Label {
+                    Layout.fillWidth: true
+                    text: qsTr("Preferences")
+                    font.pixelSize: 20
+                    font.weight: Font.Bold
+                    color: sheet.ink
+                }
+                GlassIconButton {
+                    size: 32
+                    icon.source: "qrc:/icons/close.svg"
+                    tip: qsTr("Close")
+                    onClicked: sheet.close()
+                }
             }
-            GlassIconButton {
-                size: 32
-                icon.source: "qrc:/icons/close.svg"
-                tip: qsTr("Close")
-                onClicked: sheet.close()
-            }
-        }
 
-        RowLayout {
-            Layout.fillWidth: true
-            Label { Layout.fillWidth: true; text: qsTr("Transparency"); color: sheet.ink; font.pixelSize: 14 }
-            Label { text: sheet.percent(settings.transparency); color: sheet.faint; font.pixelSize: 13 }
-        }
-        Slider {
-            Layout.fillWidth: true
-            from: 0
-            to: 1
-            focusPolicy: Qt.NoFocus
-            value: settings.transparency
-            onMoved: settings.transparency = value
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            Label { Layout.fillWidth: true; text: qsTr("Artwork glow"); color: sheet.ink; font.pixelSize: 14 }
-            Label { text: sheet.percent(settings.artworkGlow); color: sheet.faint; font.pixelSize: 13 }
-        }
-        Slider {
-            Layout.fillWidth: true
-            from: 0
-            to: 1
-            focusPolicy: Qt.NoFocus
-            value: settings.artworkGlow
-            onMoved: settings.artworkGlow = value
-        }
-
-        Repeater {
-            model: [
-                { key: "softCorners", title: qsTr("Soft corners"), detail: qsTr("Rounder than the theme's windows, like iOS.") },
-                { key: "motion", title: qsTr("Drifting artwork"), detail: qsTr("The cover slowly turns behind the glass while music plays.") },
-                { key: "followPlaying", title: qsTr("Follow what's playing"), detail: qsTr("Switch to whichever player starts playing.") }
-            ]
-
-            delegate: RowLayout {
-                required property var modelData
+            RowLayout {
                 Layout.fillWidth: true
-                Layout.topMargin: 4
+                Label { Layout.fillWidth: true; text: qsTr("Transparency"); color: sheet.ink; font.pixelSize: 14 }
+                Label { text: sheet.percent(settings.transparency); color: sheet.faint; font.pixelSize: 13 }
+            }
+            Slider {
+                Layout.fillWidth: true
+                from: 0
+                to: 1
+                focusPolicy: Qt.NoFocus
+                value: settings.transparency
+                onMoved: settings.transparency = value
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Label { Layout.fillWidth: true; text: qsTr("Artwork glow"); color: sheet.ink; font.pixelSize: 14 }
+                Label { text: sheet.percent(settings.artworkGlow); color: sheet.faint; font.pixelSize: 13 }
+            }
+            Slider {
+                Layout.fillWidth: true
+                from: 0
+                to: 1
+                focusPolicy: Qt.NoFocus
+                value: settings.artworkGlow
+                onMoved: settings.artworkGlow = value
+            }
+
+            Repeater {
+                model: [
+                    { key: "softCorners", title: qsTr("Soft corners"), detail: qsTr("Rounder than the theme's windows, like iOS.") },
+                    { key: "motion", title: qsTr("Drifting artwork"), detail: qsTr("The cover slowly turns behind the glass while music plays.") },
+                    { key: "followPlaying", title: qsTr("Follow what's playing"), detail: qsTr("Switch to whichever player starts playing.") },
+                    { key: "startSpotify", title: qsTr("Open Spotify in the background"), detail: qsTr("Start Spotify when Tono opens, if it isn't running.") }
+                ]
+
+                delegate: RowLayout {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    Layout.topMargin: 4
+                    spacing: 12
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 1
+                        Label { Layout.fillWidth: true; text: modelData.title; color: sheet.ink; font.pixelSize: 14; wrapMode: Text.WordWrap }
+                        Label { Layout.fillWidth: true; text: modelData.detail; color: sheet.faint; font.pixelSize: 12; wrapMode: Text.WordWrap }
+                    }
+                    Switch {
+                        focusPolicy: Qt.NoFocus
+                        checked: settings[modelData.key]
+                        onToggled: settings[modelData.key] = checked
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.topMargin: 8
                 spacing: 12
 
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: 1
-                    Label { Layout.fillWidth: true; text: modelData.title; color: sheet.ink; font.pixelSize: 14; wrapMode: Text.WordWrap }
-                    Label { Layout.fillWidth: true; text: modelData.detail; color: sheet.faint; font.pixelSize: 12; wrapMode: Text.WordWrap }
+                    Label { Layout.fillWidth: true; text: "Spotify"; color: sheet.ink; font.pixelSize: 14 }
+                    Label {
+                        Layout.fillWidth: true
+                        text: spotify.state === "signedIn"
+                              ? (spotify.userName !== "" ? qsTr("Connected as %1").arg(spotify.userName) : qsTr("Connected"))
+                              : qsTr("Not connected. Connecting lets you search from Tono.")
+                        color: sheet.faint
+                        font.pixelSize: 12
+                        wrapMode: Text.WordWrap
+                    }
                 }
-                Switch {
+                Button {
+                    flat: true
                     focusPolicy: Qt.NoFocus
-                    checked: settings[modelData.key]
-                    onToggled: settings[modelData.key] = checked
+                    text: spotify.state === "signedIn" ? qsTr("Disconnect") : qsTr("Connect")
+                    onClicked: spotify.state === "signedIn" ? spotify.signOut() : sheet.connectSpotify()
                 }
             }
-        }
 
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.topMargin: 8
-            spacing: 12
-
-            ColumnLayout {
+            RowLayout {
                 Layout.fillWidth: true
-                spacing: 1
-                Label { Layout.fillWidth: true; text: "Spotify"; color: sheet.ink; font.pixelSize: 14 }
+                Layout.topMargin: 10
                 Label {
                     Layout.fillWidth: true
-                    text: spotify.state === "signedIn"
-                          ? (spotify.userName !== "" ? qsTr("Connected as %1").arg(spotify.userName) : qsTr("Connected"))
-                          : qsTr("Not connected. Connecting lets you search from Tono.")
+                    text: qsTr("Colors follow your Omarchy theme.")
                     color: sheet.faint
                     font.pixelSize: 12
                     wrapMode: Text.WordWrap
                 }
-            }
-            Button {
-                flat: true
-                focusPolicy: Qt.NoFocus
-                text: spotify.state === "signedIn" ? qsTr("Disconnect") : qsTr("Connect")
-                onClicked: spotify.state === "signedIn" ? spotify.signOut() : sheet.connectSpotify()
-            }
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.topMargin: 10
-            Label {
-                Layout.fillWidth: true
-                text: qsTr("Colors follow your Omarchy theme.")
-                color: sheet.faint
-                font.pixelSize: 12
-                wrapMode: Text.WordWrap
-            }
-            Button {
-                flat: true
-                focusPolicy: Qt.NoFocus
-                text: qsTr("Reset")
-                onClicked: settings.reset()
+                Button {
+                    flat: true
+                    focusPolicy: Qt.NoFocus
+                    text: qsTr("Reset")
+                    onClicked: settings.reset()
+                }
             }
         }
     }

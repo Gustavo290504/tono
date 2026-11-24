@@ -3,6 +3,7 @@
 #include <QDBusConnection>
 #include <QList>
 #include <QObject>
+#include <QTimer>
 
 #include "mpris.h"
 
@@ -17,6 +18,8 @@ class Players : public QObject {
     Q_PROPERTY(bool busAvailable READ busAvailable CONSTANT)
     Q_PROPERTY(bool spotifyInstalled READ spotifyInstalled CONSTANT)
     Q_PROPERTY(bool followPlaying READ followPlaying WRITE setFollowPlaying NOTIFY followPlayingChanged)
+    // Spotify was started in the background and hasn't shown up on the bus yet.
+    Q_PROPERTY(bool startingSpotify READ startingSpotify NOTIFY startingSpotifyChanged)
 
 public:
     explicit Players(QObject *parent = nullptr);
@@ -30,6 +33,8 @@ public:
     bool busAvailable() const { return m_bus.isConnected(); }
     bool spotifyInstalled() const;
     bool followPlaying() const { return m_followPlaying; }
+    bool startingSpotify() const { return m_startingSpotify; }
+    bool hasSpotify() const;
     void setFollowPlaying(bool follow);
 
     Q_INVOKABLE void select(int index);
@@ -38,6 +43,8 @@ public:
     // Plays a spotify: URI (a track, a playlist, a search) in the Spotify
     // app, starting it if it isn't running, and shows it.
     Q_INVOKABLE void playUri(const QString &uri);
+    // Starts Spotify without bringing its window up, unless it's running.
+    Q_INVOKABLE void startSpotifyInBackground();
 
     void addService(const QString &service);
     void removeService(const QString &service);
@@ -57,6 +64,7 @@ signals:
     void playersChanged();
     void currentChanged();
     void followPlayingChanged();
+    void startingSpotifyChanged();
     void failed(const QString &message);
 
 private slots:
@@ -70,4 +78,6 @@ private:
     MprisPlayer *m_current = nullptr;
     QString m_pinned;
     bool m_followPlaying = true;
+    bool m_startingSpotify = false;
+    QTimer m_startingTimeout;
 };

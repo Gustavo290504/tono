@@ -12,7 +12,7 @@
 namespace {
 // LRCLIB asks clients to say who they are. This names the app only, never
 // the person using it.
-const QByteArray UserAgent = "Tono/0.2.0 (Omarchy music app)";
+const QByteArray UserAgent = "Tono/0.3.0 (Omarchy music app)";
 
 // Two recordings whose lengths differ by more than this are different cuts
 // (a radio edit, a live take), and synced timings from one drift on the other.

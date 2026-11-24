@@ -29,7 +29,9 @@ ColumnLayout {
         Layout.maximumWidth: 320
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.WordWrap
-        text: players.busAvailable ? qsTr("Nothing is playing") : qsTr("Can't reach your players")
+        text: !players.busAvailable ? qsTr("Can't reach your players")
+              : players.startingSpotify ? qsTr("Opening Spotify…")
+              : qsTr("Nothing is playing")
         font.pixelSize: 22
         font.weight: Font.Bold
         color: idle.ink
@@ -44,6 +46,8 @@ ColumnLayout {
         font.pixelSize: 14
         text: !players.busAvailable
               ? qsTr("Tono talks to music players over the session D-Bus, and this session doesn't have one.")
+              : players.startingSpotify
+                ? qsTr("It starts in the background; press Space to play once it's ready.")
               : players.spotifyInstalled
                 ? qsTr("Open Spotify, or any app that plays music, and Tono will follow it.")
                 : qsTr("Spotify isn't installed. Any player that speaks MPRIS works too: a browser, mpv, or a terminal player.")
@@ -52,7 +56,7 @@ ColumnLayout {
     Button {
         Layout.alignment: Qt.AlignHCenter
         Layout.topMargin: 6
-        visible: players.busAvailable && players.spotifyInstalled
+        visible: players.busAvailable && players.spotifyInstalled && !players.startingSpotify
         highlighted: true
         focusPolicy: Qt.NoFocus
         Material.roundedScale: idle.corner

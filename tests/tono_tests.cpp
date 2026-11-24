@@ -196,6 +196,7 @@ private slots:
         QVERIFY(!settings.softCorners());
         QVERIFY(settings.followPlaying());
         QVERIFY(settings.motion());
+        QVERIFY(settings.startSpotify());
     }
 
     void settingsClampAndPersist()
@@ -336,6 +337,20 @@ private slots:
         QCOMPARE(Players::choose(some, {}, "org.mpris.MediaPlayer2.chromium", false), 0);
         // A pick by hand beats everything.
         QCOMPARE(Players::choose(some, "org.mpris.MediaPlayer2.spotify", {}, true), 1);
+    }
+
+    void playersOnlyStartSpotifyWhenItsMissing()
+    {
+        // Without a bus nothing is started, which also keeps these tests
+        // from ever opening Spotify.
+        Players offline{QDBusConnection("tono-tests-none")};
+        offline.startSpotifyInBackground();
+        QVERIFY(!offline.startingSpotify());
+
+        offline.addService("org.mpris.MediaPlayer2.mpv");
+        QVERIFY(!offline.hasSpotify());
+        offline.addService("org.mpris.MediaPlayer2.spotify");
+        QVERIFY(offline.hasSpotify());
     }
 
     void playersSkipPlayerctld()

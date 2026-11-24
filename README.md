@@ -15,6 +15,24 @@ SoundCloud, mpv, and terminal players like spotify_player all show up on
 their own. When several are open, Tono follows whichever starts playing,
 and the pill at the top switches between them.
 
+## Spotify out of sight
+
+Tono doesn't play audio itself: the Spotify app does, and Tono is its
+remote. When Tono opens and Spotify isn't running, Tono starts it in the
+background (Preferences can turn that off). To never see Spotify's window,
+send it to a hidden special workspace with a Hyprland rule in
+`~/.config/hypr/hyprland.lua`, and a key to peek at it in `bindings.lua`:
+
+```lua
+o.window("Spotify", { workspace = "special:music silent" })
+o.bind("SUPER + ALT + M", "Show or hide Spotify", hl.dsp.workspace.toggle_special("music"))
+```
+
+Playing without the Spotify app, through a Spotify Connect client like
+librespot, isn't possible for most accounts: since late 2025 Spotify denies
+those clients the keys to decrypt songs on newer accounts, and has said it is
+phasing them out.
+
 ## Lyrics
 
 Press L, or the speech bubble, and the lyrics take the cover's place. When

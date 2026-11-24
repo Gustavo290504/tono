@@ -16,6 +16,7 @@ Settings::Settings(const QString &path, QObject *parent)
     m_softCorners = m_store.value("look/softCorners", m_softCorners).toBool();
     m_motion = m_store.value("look/motion", m_motion).toBool();
     m_followPlaying = m_store.value("players/followPlaying", m_followPlaying).toBool();
+    m_startSpotify = m_store.value("players/startSpotify", m_startSpotify).toBool();
 }
 
 // QSettings writes through a temporary file and a rename, so a crash never
@@ -63,6 +64,13 @@ void Settings::setMotion(bool value) {
     store("look/motion", value);
 }
 
+void Settings::setStartSpotify(bool value) {
+    if (value == m_startSpotify)
+        return;
+    m_startSpotify = value;
+    store("players/startSpotify", value);
+}
+
 void Settings::reset() {
     m_store.clear();
     m_store.sync();
@@ -71,5 +79,6 @@ void Settings::reset() {
     m_softCorners = false;
     m_followPlaying = true;
     m_motion = true;
+    m_startSpotify = true;
     emit changed();
 }

@@ -19,6 +19,8 @@ class Settings : public QObject {
     Q_PROPERTY(bool followPlaying READ followPlaying WRITE setFollowPlaying NOTIFY changed)
     // The slow drift of the artwork behind the glass, like Apple Music.
     Q_PROPERTY(bool motion READ motion WRITE setMotion NOTIFY changed)
+    // Start Spotify in the background when Tono opens and it isn't running.
+    Q_PROPERTY(bool startSpotify READ startSpotify WRITE setStartSpotify NOTIFY changed)
 
 public:
     explicit Settings(const QString &path = {}, QObject *parent = nullptr);
@@ -28,12 +30,14 @@ public:
     bool softCorners() const { return m_softCorners; }
     bool followPlaying() const { return m_followPlaying; }
     bool motion() const { return m_motion; }
+    bool startSpotify() const { return m_startSpotify; }
 
     void setTransparency(double value);
     void setArtworkGlow(double value);
     void setSoftCorners(bool value);
     void setFollowPlaying(bool value);
     void setMotion(bool value);
+    void setStartSpotify(bool value);
 
     Q_INVOKABLE void reset();
 
@@ -52,4 +56,5 @@ private:
     bool m_softCorners = false;
     bool m_followPlaying = true;
     bool m_motion = true;
+    bool m_startSpotify = true;
 };
