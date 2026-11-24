@@ -22,6 +22,8 @@ class MprisPlayer : public QObject {
     Q_PROPERTY(bool playing READ playing NOTIFY statusChanged)
     Q_PROPERTY(QString title READ title NOTIFY trackChanged)
     Q_PROPERTY(QString artist READ artist NOTIFY trackChanged)
+    // The first artist alone, which is how lyrics databases file a song.
+    Q_PROPERTY(QString leadArtist READ leadArtist NOTIFY trackChanged)
     Q_PROPERTY(QString album READ album NOTIFY trackChanged)
     Q_PROPERTY(QUrl artUrl READ artUrl NOTIFY trackChanged)
     Q_PROPERTY(qint64 length READ length NOTIFY trackChanged)
@@ -42,6 +44,7 @@ public:
         QString id;
         QString title;
         QString artist;
+        QString leadArtist;
         QString album;
         QUrl art;
         qint64 lengthMs = 0;
@@ -62,6 +65,7 @@ public:
     bool playing() const { return m_status == QLatin1String("Playing"); }
     QString title() const { return m_track.title; }
     QString artist() const { return m_track.artist; }
+    QString leadArtist() const { return m_track.leadArtist; }
     QString album() const { return m_track.album; }
     QUrl artUrl() const { return m_track.art; }
     qint64 length() const { return m_track.lengthMs; }
@@ -86,6 +90,9 @@ public:
     Q_INVOKABLE void toggleShuffle();
     Q_INVOKABLE void cycleLoop();
     Q_INVOKABLE void raise();
+    // Plays a URI the player understands, like spotify:track:… for Spotify.
+    Q_INVOKABLE void openUri(const QString &uri);
+    Q_INVOKABLE bool supportsUri(const QString &uri) const;
 
     // The pieces that turn D-Bus replies into state, public so tests can feed
     // them what a real player would send.
@@ -121,6 +128,7 @@ private:
     QString m_service;
     QDBusConnection m_bus;
     QString m_identity;
+    QStringList m_uriSchemes;
     QUrl m_iconUrl;
     QString m_status = "Stopped";
     Track m_track;

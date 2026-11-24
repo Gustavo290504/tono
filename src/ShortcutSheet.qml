@@ -53,6 +53,8 @@ Popup {
                 { keys: ["↑", "↓"], action: qsTr("Volume up or down") },
                 { keys: ["S"], action: qsTr("Shuffle") },
                 { keys: ["R"], action: qsTr("Repeat") },
+                { keys: ["Ctrl F", "/"], action: qsTr("Search Spotify") },
+                { keys: ["L"], action: qsTr("Lyrics") },
                 { keys: ["Tab"], action: qsTr("Next player") },
                 { keys: ["O"], action: qsTr("Show the player's window") },
                 { keys: [","], action: qsTr("Preferences") },

@@ -1,7 +1,7 @@
 pkgname=tono
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
-pkgdesc='A glassy now-playing window for Spotify and any MPRIS music player'
+pkgdesc='A glassy now-playing window for Spotify and any MPRIS music player, with synced lyrics and Spotify search'
 arch=('x86_64' 'aarch64')
 license=('MIT')
 depends=('qt6-base' 'qt6-declarative' 'qt6-svg' 'qt6-wayland')

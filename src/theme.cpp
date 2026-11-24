@@ -118,13 +118,15 @@ void Theme::reload() {
     const QString accent = readColor(contents, "accent", "#FFD60A");
     const QString foreground = readColor(contents, "foreground", dark ? "#F5F5F7" : "#1C1C1E");
     const QString muted = readColor(contents, "muted", dark ? "#8E8E93" : "#6C6C70");
+    const QString danger = readColor(contents, "red", dark ? "#FF453A" : "#D70015");
 
     if (accent != m_accent || background != m_background || foreground != m_foreground || muted != m_muted
-        || dark != m_dark) {
+        || danger != m_danger || dark != m_dark) {
         m_accent = accent;
         m_background = background;
         m_foreground = foreground;
         m_muted = muted;
+        m_danger = danger;
         m_dark = dark;
         emit changed();
     }

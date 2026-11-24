@@ -1,13 +1,13 @@
 [Desktop Entry]
 Type=Application
 Name=Tono
-Comment=See and control what Spotify or any music player is playing
-Comment[es]=Ve y controla lo que suena en Spotify o cualquier reproductor
-Comment[es_MX]=Ve y controla lo que suena en Spotify o cualquier reproductor
+Comment=Control Spotify or any music player, with synced lyrics and search
+Comment[es]=Controla Spotify o cualquier reproductor, con letras sincronizadas y búsqueda
+Comment[es_MX]=Controla Spotify o cualquier reproductor, con letras sincronizadas y búsqueda
 Exec=tono
 Icon=tono
 Terminal=false
 Categories=AudioVideo;Audio;Player;
-Keywords=music;spotify;mpris;player;now playing;
-Keywords[es]=música;spotify;mpris;reproductor;
+Keywords=music;spotify;mpris;player;now playing;lyrics;search;
+Keywords[es]=música;spotify;mpris;reproductor;letras;buscar;
 StartupWMClass=tono

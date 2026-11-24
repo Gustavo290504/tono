@@ -85,7 +85,9 @@ MprisPlayer::Track MprisPlayer::parseMetadata(const QVariantMap &metadata) {
     track.title = get("xesam:title").toString();
     if (track.title.isEmpty())
         track.title = QUrl(get("xesam:url").toString()).fileName();
-    track.artist = get("xesam:artist").toStringList().join(", ");
+    const QStringList artists = get("xesam:artist").toStringList();
+    track.artist = artists.join(", ");
+    track.leadArtist = artists.value(0);
     track.album = get("xesam:album").toString();
 
     // Older Spotify builds point artwork at a host that no longer serves it.
@@ -193,6 +195,8 @@ void MprisPlayer::applyPlayerProperties(const QVariantMap &properties) {
 }
 
 void MprisPlayer::applyRootProperties(const QVariantMap &properties) {
+    if (properties.contains("SupportedUriSchemes"))
+        m_uriSchemes = unwrap(properties.value("SupportedUriSchemes")).toStringList();
     const QString identity = unwrap(properties.value("Identity")).toString();
     const QString desktopEntry = unwrap(properties.value("DesktopEntry")).toString();
 
@@ -317,6 +321,11 @@ void MprisPlayer::playPause() { call("PlayPause"); }
 void MprisPlayer::next() { call("Next"); }
 void MprisPlayer::previous() { call("Previous"); }
 void MprisPlayer::raise() { call("Raise"); }
+void MprisPlayer::openUri(const QString &uri) { call("OpenUri", {uri}); }
+
+bool MprisPlayer::supportsUri(const QString &uri) const {
+    return m_uriSchemes.contains(QUrl(uri).scheme(), Qt::CaseInsensitive);
+}
 
 void MprisPlayer::seekTo(qint64 ms) {
     if (!canSeek())

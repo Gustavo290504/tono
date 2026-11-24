@@ -144,3 +144,21 @@ void Players::launchSpotify() {
     if (!started)
         emit failed(tr("Couldn't start Spotify."));
 }
+
+void Players::playUri(const QString &uri) {
+    for (int i = 0; i < m_players.size(); ++i) {
+        MprisPlayer *player = m_players.at(i);
+        if (player->supportsUri(uri) || player->service().contains("spotify", Qt::CaseInsensitive)) {
+            player->openUri(uri);
+            select(i);
+            return;
+        }
+    }
+    // Spotify takes the URI on its command line too, the way its desktop
+    // entry opens spotify: links.
+    const QString uwsm = QStandardPaths::findExecutable("uwsm-app");
+    const bool started = !uwsm.isEmpty() ? QProcess::startDetached(uwsm, {"--", "spotify", "--uri=" + uri})
+                                         : QProcess::startDetached("spotify", {"--uri=" + uri});
+    if (!started)
+        emit failed(tr("Couldn't start Spotify."));
+}

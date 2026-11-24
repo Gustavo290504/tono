@@ -35,6 +35,9 @@ public:
     Q_INVOKABLE void select(int index);
     Q_INVOKABLE void selectNext();
     Q_INVOKABLE void launchSpotify();
+    // Plays a spotify: URI (a track, a playlist, a search) in the Spotify
+    // app, starting it if it isn't running, and shows it.
+    Q_INVOKABLE void playUri(const QString &uri);
 
     void addService(const QString &service);
     void removeService(const QString &service);

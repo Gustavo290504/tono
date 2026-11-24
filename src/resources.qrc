@@ -4,26 +4,31 @@
         <file alias="GlassIconButton.qml">GlassIconButton.qml</file>
         <file alias="GlassPanel.qml">GlassPanel.qml</file>
         <file alias="IdleState.qml">IdleState.qml</file>
+        <file alias="LyricsView.qml">LyricsView.qml</file>
         <file alias="Main.qml">Main.qml</file>
         <file alias="PreferencesSheet.qml">PreferencesSheet.qml</file>
+        <file alias="SearchSheet.qml">SearchSheet.qml</file>
         <file alias="ShortcutSheet.qml">ShortcutSheet.qml</file>
         <file alias="SourceStrip.qml">SourceStrip.qml</file>
         <file alias="TintedIcon.qml">TintedIcon.qml</file>
         <file alias="TrackScrubber.qml">TrackScrubber.qml</file>
         <file alias="icons/close.svg">icons/close.svg</file>
         <file alias="icons/keyboard.svg">icons/keyboard.svg</file>
+        <file alias="icons/lyrics.svg">icons/lyrics.svg</file>
         <file alias="icons/next.svg">icons/next.svg</file>
         <file alias="icons/note.svg">icons/note.svg</file>
-        <file alias="icons/open.svg">icons/open.svg</file>
         <file alias="icons/pause.svg">icons/pause.svg</file>
         <file alias="icons/play.svg">icons/play.svg</file>
+        <file alias="icons/playlist.svg">icons/playlist.svg</file>
         <file alias="icons/preferences.svg">icons/preferences.svg</file>
         <file alias="icons/previous.svg">icons/previous.svg</file>
         <file alias="icons/repeat-one.svg">icons/repeat-one.svg</file>
         <file alias="icons/repeat.svg">icons/repeat.svg</file>
+        <file alias="icons/search.svg">icons/search.svg</file>
         <file alias="icons/shuffle.svg">icons/shuffle.svg</file>
         <file alias="icons/volume-high.svg">icons/volume-high.svg</file>
         <file alias="icons/volume-low.svg">icons/volume-low.svg</file>
+        <file alias="i18n/en.json">i18n/en.json</file>
         <file alias="i18n/es.json">i18n/es.json</file>
     </qresource>
 </RCC>

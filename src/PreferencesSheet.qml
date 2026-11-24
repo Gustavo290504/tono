@@ -9,6 +9,9 @@ Popup {
     id: sheet
 
     property Item backdrop: null
+
+    // Asks the window to show the search sheet, where connecting happens.
+    signal connectSpotify()
     property int corner: 0
     readonly property color ink: theme.foreground
     readonly property color faint: Qt.rgba(ink.r, ink.g, ink.b, 0.62)
@@ -112,6 +115,33 @@ Popup {
                     checked: settings[modelData.key]
                     onToggled: settings[modelData.key] = checked
                 }
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.topMargin: 8
+            spacing: 12
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 1
+                Label { Layout.fillWidth: true; text: "Spotify"; color: sheet.ink; font.pixelSize: 14 }
+                Label {
+                    Layout.fillWidth: true
+                    text: spotify.state === "signedIn"
+                          ? (spotify.userName !== "" ? qsTr("Connected as %1").arg(spotify.userName) : qsTr("Connected"))
+                          : qsTr("Not connected. Connecting lets you search from Tono.")
+                    color: sheet.faint
+                    font.pixelSize: 12
+                    wrapMode: Text.WordWrap
+                }
+            }
+            Button {
+                flat: true
+                focusPolicy: Qt.NoFocus
+                text: spotify.state === "signedIn" ? qsTr("Disconnect") : qsTr("Connect")
+                onClicked: spotify.state === "signedIn" ? spotify.signOut() : sheet.connectSpotify()
             }
         }
 

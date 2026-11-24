@@ -1,4 +1,5 @@
-// tono — a glassy now-playing window for Spotify and any MPRIS music player.
+// tono — a glassy now-playing window for Spotify and any MPRIS music player,
+// with synced lyrics and Spotify search.
 
 #include <QGuiApplication>
 #include <QIcon>
@@ -12,8 +13,10 @@
 #include <QStandardPaths>
 #include <QUrl>
 
+#include "lyrics.h"
 #include "players.h"
 #include "settings.h"
+#include "spotify.h"
 #include "theme.h"
 #include "translator.h"
 
@@ -40,7 +43,7 @@ int main(int argc, char *argv[]) {
 
     QGuiApplication app(argc, argv);
     app.setApplicationName("tono");
-    app.setApplicationVersion("0.1.0");
+    app.setApplicationVersion("0.2.0");
 
     // Matches the window to tono.desktop, so the compositor (Wayland app_id)
     // and the launcher pick up the installed icon.
@@ -61,6 +64,9 @@ int main(int argc, char *argv[]) {
     QObject::connect(&settings, &Settings::changed, &players,
                      [&] { players.setFollowPlaying(settings.followPlaying()); });
 
+    Lyrics lyrics;
+    Spotify spotify;
+
     ArtworkCacheFactory artworkCache;
     QQmlApplicationEngine engine;
     engine.setNetworkAccessManagerFactory(&artworkCache);
@@ -69,6 +75,8 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("theme", &theme);
     engine.rootContext()->setContextProperty("settings", &settings);
     engine.rootContext()->setContextProperty("players", &players);
+    engine.rootContext()->setContextProperty("lyrics", &lyrics);
+    engine.rootContext()->setContextProperty("spotify", &spotify);
     engine.load(QUrl("qrc:/Main.qml"));
     if (engine.rootObjects().isEmpty())
         return 1;

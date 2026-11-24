@@ -1,15 +1,94 @@
 #include <QDBusObjectPath>
+#include <QDesktopServices>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QTcpServer>
+#include <QTcpSocket>
+#include <QUrlQuery>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QDir>
 #include <QFile>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest>
 
+#include "lyrics.h"
 #include "mpris.h"
 #include "players.h"
 #include "settings.h"
+#include "spotify.h"
 #include "theme.h"
 #include "translator.h"
+
+
+// A stand-in for accounts.spotify.com and api.spotify.com: hands out tokens
+// and a profile, and remembers what the token endpoint was sent.
+class FakeSpotify : public QTcpServer {
+public:
+    FakeSpotify() {
+        listen(QHostAddress::LocalHost, 0);
+        connect(this, &QTcpServer::newConnection, this, [this] {
+            while (QTcpSocket *socket = nextPendingConnection()) {
+                connect(socket, &QTcpSocket::readyRead, socket, [this, socket] {
+                    QByteArray buffer = socket->property("buffer").toByteArray() + socket->readAll();
+                    socket->setProperty("buffer", buffer);
+                    const qsizetype end = buffer.indexOf("\r\n\r\n");
+                    if (end < 0)
+                        return;
+                    static const QRegularExpression length("Content-Length: (\\d+)", QRegularExpression::CaseInsensitiveOption);
+                    const auto match = length.match(QString::fromLatin1(buffer.left(end)));
+                    const QByteArray body = buffer.mid(end + 4);
+                    if (match.hasMatch() && body.size() < match.captured(1).toInt())
+                        return;
+                    const QByteArray line = buffer.left(buffer.indexOf("\r\n"));
+                    QByteArray json = "{}";
+                    if (line.contains("/api/token")) {
+                        tokenRequests << body;
+                        json = R"({"access_token": "access-1", "expires_in": 3600, "refresh_token": "refresh-1"})";
+                    } else if (line.contains("/v1/me")) {
+                        authorization = buffer.contains("Authorization: Bearer access-1");
+                        json = R"({"display_name": "Demo Listener", "id": "demo"})";
+                    }
+                    socket->write("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: "
+                                  + QByteArray::number(json.size()) + "\r\n\r\n" + json);
+                    socket->disconnectFromHost();
+                });
+            }
+        });
+    }
+    QUrl url() const { return QUrl(QString("http://127.0.0.1:%1").arg(serverPort())); }
+    QList<QByteArray> tokenRequests;
+    bool authorization = false;
+};
+
+// Plays the browser: follows the authorize URL straight back to Tono's
+// redirect URI, as if the user had approved.
+class FakeBrowser : public QObject {
+    Q_OBJECT
+public:
+    QUrl opened;
+    bool follow = true;
+public slots:
+    void open(const QUrl &url) {
+        opened = url;
+        if (!follow)
+            return;
+        const QUrlQuery query(url);
+        QUrl back(query.queryItemValue("redirect_uri", QUrl::FullyDecoded));
+        back.setQuery("code=c0de&state=" + query.queryItemValue("state"));
+        auto *reply = m_network.get(QNetworkRequest(back));
+        connect(reply, &QNetworkReply::finished, this, [this, reply] {
+            page = reply->readAll();
+            reply->deleteLater();
+        });
+    }
+public:
+    QByteArray page;
+private:
+    QNetworkAccessManager m_network;
+};
 
 class TonoTests : public QObject {
     Q_OBJECT
@@ -296,6 +375,243 @@ private slots:
         players.removeService("org.mpris.MediaPlayer2.mpv");
         QCOMPARE(players.current(), nullptr);
         QCOMPARE(current.count(), 1);
+    }
+
+
+    // Lyrics
+
+    void lrcParsesStampsAndRepeats()
+    {
+        const auto lines = Lyrics::parseLrc("[ar:Someone]\n[00:31.48] First line\n[00:35.4]Second\n"
+                                            "[01:02.003][00:40.00] Chorus\n[00:50.00]\nnot a lyric\n");
+        QCOMPARE(lines.size(), 5);
+        QCOMPARE(lines.at(0).ms, qint64(31480));
+        QCOMPARE(lines.at(0).text, QString("First line"));
+        QCOMPARE(lines.at(1).ms, qint64(35400));
+        QCOMPARE(lines.at(2).ms, qint64(40000));
+        QCOMPARE(lines.at(2).text, QString("Chorus"));
+        QCOMPARE(lines.at(3).text, QString());
+        QCOMPARE(lines.at(4).ms, qint64(62003));
+        QCOMPARE(lines.at(4).text, QString("Chorus"));
+    }
+
+    void lyricsFindTheLineBeingSung()
+    {
+        const auto lines = Lyrics::parseLrc("[00:10.00]a\n[00:20.00]b\n[00:30.00]c\n");
+        QCOMPARE(Lyrics::indexAt(lines, 0), -1);
+        QCOMPARE(Lyrics::indexAt(lines, 10000), 0);
+        QCOMPARE(Lyrics::indexAt(lines, 29999), 1);
+        QCOMPARE(Lyrics::indexAt(lines, 999999), 2);
+        QCOMPARE(Lyrics::indexAt(Lyrics::parsePlain("a\nb"), 15000), -1);
+    }
+
+    void lyricsReadRecords()
+    {
+        auto result = Lyrics::parseRecord({{"syncedLyrics", "[00:01.00]hi"}, {"plainLyrics", "hi"}});
+        QCOMPARE(result.status, QString("found"));
+        QVERIFY(result.synced);
+
+        result = Lyrics::parseRecord({{"syncedLyrics", QJsonValue()}, {"plainLyrics", "one\ntwo\n\n"}});
+        QVERIFY(!result.synced);
+        QCOMPARE(result.lines.size(), 2);
+
+        QCOMPARE(Lyrics::parseRecord({{"instrumental", true}}).status, QString("instrumental"));
+        QCOMPARE(Lyrics::parseRecord({}).status, QString("missing"));
+    }
+
+    void lyricsPickTheRightCut()
+    {
+        const QJsonArray records{
+            QJsonObject{{"duration", 248.0}, {"syncedLyrics", "[00:01.00]radio edit"}},
+            QJsonObject{{"duration", 369.0}, {"plainLyrics", "album words"}},
+            QJsonObject{{"duration", 368.0}, {"syncedLyrics", "[00:02.00]album synced"}},
+        };
+        auto result = Lyrics::pickSearchResult(records, 369000);
+        QVERIFY(result.synced);
+        QCOMPARE(result.lines.first().text, QString("album synced"));
+
+        // Only another cut has words: they show, but unsynced.
+        result = Lyrics::pickSearchResult({records.at(0)}, 369000);
+        QCOMPARE(result.status, QString("found"));
+        QVERIFY(!result.synced);
+        QCOMPARE(result.lines.first().ms, qint64(-1));
+
+        QCOMPARE(Lyrics::pickSearchResult({}, 1000).status, QString("missing"));
+    }
+
+    void lyricsSimplifyTitles()
+    {
+        QCOMPARE(Lyrics::simplifyTitle("Let It Be - Remastered 2009"), QString("Let It Be"));
+        QCOMPARE(Lyrics::simplifyTitle("Song (feat. Someone)"), QString("Song"));
+        QCOMPARE(Lyrics::simplifyTitle("Love (Is All)"), QString("Love (Is All)"));
+    }
+
+    // Spotify
+
+    void spotifyBuildsThePkceSignIn()
+    {
+        QCOMPARE(Spotify::codeChallenge("tono-test-verifier-0123456789-abcdefghijklmnopqrstuvwxyz._~ABCDEF"),
+                 QString("kNVjncBvmsy2bUc45k-aKYOgUC0CPwB60a-0HmCZC3k"));
+        QVERIFY(Spotify::isClientId("0123456789abcdef0123456789ABCDEF"));
+        QVERIFY(!Spotify::isClientId("not-a-client-id"));
+
+        const QUrl url = Spotify::authorizeUrl(QUrl("https://accounts.spotify.com"), "abc", "challenge", "xyz");
+        const QUrlQuery query(url);
+        QCOMPARE(url.path(), QString("/authorize"));
+        QCOMPARE(query.queryItemValue("redirect_uri", QUrl::FullyDecoded), QString("http://127.0.0.1:8898/callback"));
+        QCOMPARE(query.queryItemValue("code_challenge_method"), QString("S256"));
+        QCOMPARE(query.queryItemValue("state"), QString("xyz"));
+        QVERIFY(!url.toString().contains("secret"));
+    }
+
+    void spotifyReadsTheCallback()
+    {
+        auto callback = Spotify::parseCallback("GET /callback?code=AQ%2Fx&state=s1 HTTP/1.1\r\n");
+        QVERIFY(callback.isCallback);
+        QCOMPARE(callback.code, QString("AQ/x"));
+        QCOMPARE(callback.state, QString("s1"));
+
+        callback = Spotify::parseCallback("GET /callback?error=access_denied&state=s1 HTTP/1.1");
+        QCOMPARE(callback.error, QString("access_denied"));
+        QVERIFY(!Spotify::parseCallback("GET /favicon.ico HTTP/1.1").isCallback);
+        QVERIFY(!Spotify::parseCallback("POST /callback HTTP/1.1").isCallback);
+    }
+
+    void spotifyParsesResults()
+    {
+        const auto tracks = Spotify::parseTracks(QJsonDocument::fromJson(R"({"items": [
+            {"uri": "spotify:track:1", "name": "Golden Hour Drive", "duration_ms": 214000,
+             "artists": [{"name": "Lumen Coast"}, {"name": "Harbor Lights"}],
+             "album": {"name": "Low Tide Radio", "images": [
+                {"url": "big", "width": 640}, {"url": "mid", "width": 300}, {"url": "small", "width": 64}]}},
+            {"name": "no uri"}]})").object());
+        QCOMPARE(tracks.size(), 1);
+        const auto track = tracks.first().toMap();
+        QCOMPARE(track.value("uri").toString(), QString("spotify:track:1"));
+        QCOMPARE(track.value("subtitle").toString(), QString("Lumen Coast, Harbor Lights · Low Tide Radio"));
+        QCOMPARE(track.value("image").toString(), QString("mid"));
+        QCOMPARE(track.value("durationMs").toLongLong(), qint64(214000));
+
+        const auto playlists = Spotify::parsePlaylists(QJsonDocument::fromJson(R"({"items": [
+            {"uri": "spotify:playlist:a", "name": "Late Night Drive", "owner": {"display_name": "Demo"},
+             "items": {"total": 1}, "images": [{"url": "only", "width": null}]},
+            null,
+            {"uri": "spotify:playlist:b", "name": "Focus", "tracks": {"total": 18}, "images": []}]})").object());
+        QCOMPARE(playlists.size(), 2);
+        QCOMPARE(playlists.at(0).toMap().value("subtitle").toString(), QString("By Demo · 1 songs"));
+        QCOMPARE(playlists.at(0).toMap().value("image").toString(), QString("only"));
+        QCOMPARE(playlists.at(1).toMap().value("subtitle").toString(), QString("18 songs"));
+
+        QCOMPARE(Spotify::filterPlaylists(playlists, "focus").size(), 1);
+        QCOMPARE(Spotify::filterPlaylists(playlists, "  ").size(), 2);
+    }
+
+    void spotifyKeepsTheSignInPrivate()
+    {
+        QTemporaryDir dir;
+        const QString path = dir.filePath("tono/spotify.json");
+        {
+            Spotify spotify(path);
+            QCOMPARE(spotify.state(), QString("signedOut"));
+            spotify.setClientId(" 0123456789abcdef0123456789abcdef ");
+            QCOMPARE(spotify.clientId(), QString("0123456789abcdef0123456789abcdef"));
+        }
+        QVERIFY(QFile::exists(path));
+        QCOMPARE(QFile::permissions(path) & (QFile::ReadGroup | QFile::ReadOther | QFile::WriteGroup | QFile::WriteOther),
+                 QFile::Permissions());
+        QCOMPARE(Spotify(path).clientId(), QString("0123456789abcdef0123456789abcdef"));
+    }
+
+    void spotifySignsInWithPkce()
+    {
+        QTcpServer probe;
+        if (!probe.listen(QHostAddress::LocalHost, Spotify::Port))
+            QSKIP("Port 8898 is in use on this machine.");
+        probe.close();
+
+        QTemporaryDir dir;
+        FakeSpotify server;
+        FakeBrowser browser;
+        QDesktopServices::setUrlHandler("http", &browser, "open");
+
+        Spotify spotify(dir.filePath("spotify.json"), nullptr, server.url(), server.url());
+        spotify.setClientId("0123456789abcdef0123456789abcdef");
+        spotify.signIn();
+        QCOMPARE(spotify.state(), QString("signingIn"));
+        QTRY_COMPARE(spotify.state(), QString("signedIn"));
+        QTRY_COMPARE(spotify.userName(), QString("Demo Listener"));
+        QDesktopServices::unsetUrlHandler("http");
+
+        QVERIFY(browser.page.contains("Tono"));
+        QVERIFY(server.authorization);
+        QCOMPARE(server.tokenRequests.size(), 1);
+        const QUrlQuery form(QString::fromUtf8(server.tokenRequests.first()));
+        QCOMPARE(form.queryItemValue("grant_type"), QString("authorization_code"));
+        QCOMPARE(form.queryItemValue("code"), QString("c0de"));
+        // The verifier sent now is the one the challenge was made from.
+        QCOMPARE(Spotify::codeChallenge(form.queryItemValue("code_verifier", QUrl::FullyDecoded)),
+                 QUrlQuery(browser.opened).queryItemValue("code_challenge"));
+
+        // The refresh token is kept, and signs in again on the next start.
+        QFile store(dir.filePath("spotify.json"));
+        QVERIFY(store.open(QIODevice::ReadOnly));
+        QVERIFY(store.readAll().contains("refresh-1"));
+        QCOMPARE(Spotify(dir.filePath("spotify.json"), nullptr, server.url(), server.url()).state(), QString("signedIn"));
+
+        spotify.signOut();
+        QCOMPARE(spotify.state(), QString("signedOut"));
+        QVERIFY(store.seek(0));
+        QCOMPARE(Spotify(dir.filePath("spotify.json")).state(), QString("signedOut"));
+    }
+
+    void spotifyRejectsAForeignCallback()
+    {
+        QTcpServer probe;
+        if (!probe.listen(QHostAddress::LocalHost, Spotify::Port))
+            QSKIP("Port 8898 is in use on this machine.");
+        probe.close();
+
+        QTemporaryDir dir;
+        // A browser that never comes back: something else calls the redirect.
+        FakeBrowser browser;
+        browser.follow = false;
+        QDesktopServices::setUrlHandler("https", &browser, "open");
+        Spotify spotify(dir.filePath("spotify.json"));
+        spotify.setClientId("0123456789abcdef0123456789abcdef");
+        spotify.signIn();
+        QDesktopServices::unsetUrlHandler("https");
+        QCOMPARE(spotify.state(), QString("signingIn"));
+
+        QNetworkAccessManager network;
+        auto *reply = network.get(QNetworkRequest(QUrl(spotify.redirectUri() + "?code=stolen&state=wrong")));
+        QTRY_VERIFY(reply->isFinished());
+        reply->deleteLater();
+        QTRY_COMPARE(spotify.state(), QString("signedOut"));
+        QVERIFY(!spotify.error().isEmpty());
+    }
+
+    void spotifySearchNeedsAnAccount()
+    {
+        QTemporaryDir dir;
+        Spotify spotify(dir.filePath("spotify.json"));
+        spotify.search("anything", "track");
+        QVERIFY(spotify.results().isEmpty());
+        QVERIFY(!spotify.searching());
+    }
+
+    void playerTakesUris()
+    {
+        MprisPlayer player("org.mpris.MediaPlayer2.spotify", QDBusConnection("tono-tests-none"));
+        QVERIFY(!player.supportsUri("spotify:track:1"));
+        player.applyRootProperties({{"Identity", "Spotify"}, {"SupportedUriSchemes", QStringList{"spotify"}}});
+        QVERIFY(player.supportsUri("spotify:track:1"));
+        QVERIFY(!player.supportsUri("https://example.com"));
+    }
+
+    void metadataKeepsTheLeadArtist()
+    {
+        const auto track = MprisPlayer::parseMetadata({{"xesam:artist", QStringList{"Tyler, The Creator", "Kali Uchis"}}});
+        QCOMPARE(track.leadArtist, QString("Tyler, The Creator"));
     }
 
 private:

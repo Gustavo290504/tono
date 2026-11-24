@@ -40,6 +40,24 @@ ApplicationWindow {
 
     property string toast: ""
 
+    // The lyrics take the cover's place; while the search sheet is open its
+    // text field gets the keys instead of the shortcuts.
+    property bool showLyrics: false
+    readonly property bool typing: search.visible
+
+    function refreshLyrics() {
+        if (showLyrics && player)
+            lyrics.lookup(player.title, player.leadArtist, player.album, player.length)
+    }
+
+    onShowLyricsChanged: refreshLyrics()
+    onPlayerChanged: refreshLyrics()
+
+    Connections {
+        target: win.player
+        function onTrackChanged() { win.refreshLyrics() }
+    }
+
     function formatTime(ms) {
         const total = Math.max(0, Math.floor(ms / 1000))
         const minutes = Math.floor(total / 60), seconds = total % 60
@@ -60,20 +78,23 @@ ApplicationWindow {
 
     Timer { id: toastTimer; interval: 4000; onTriggered: win.toast = "" }
 
-    Shortcut { sequence: "?"; context: Qt.ApplicationShortcut; onActivated: shortcuts.visible ? shortcuts.close() : shortcuts.open() }
-    Shortcut { sequence: ","; context: Qt.ApplicationShortcut; onActivated: preferences.visible ? preferences.close() : preferences.open() }
-    Shortcut { sequence: "Q"; context: Qt.ApplicationShortcut; onActivated: Qt.quit() }
-    Shortcut { sequence: "Space"; context: Qt.ApplicationShortcut; onActivated: if (win.player) win.player.playPause() }
-    Shortcut { sequences: ["N", "Ctrl+Right"]; context: Qt.ApplicationShortcut; onActivated: if (win.player) win.player.next() }
-    Shortcut { sequences: ["P", "Ctrl+Left"]; context: Qt.ApplicationShortcut; onActivated: if (win.player) win.player.previous() }
-    Shortcut { sequence: "Right"; context: Qt.ApplicationShortcut; onActivated: if (win.player) win.player.seekBy(10000) }
-    Shortcut { sequence: "Left"; context: Qt.ApplicationShortcut; onActivated: if (win.player) win.player.seekBy(-10000) }
-    Shortcut { sequence: "Up"; context: Qt.ApplicationShortcut; onActivated: if (win.player) win.player.setVolume(win.player.volume + 0.05) }
-    Shortcut { sequence: "Down"; context: Qt.ApplicationShortcut; onActivated: if (win.player) win.player.setVolume(win.player.volume - 0.05) }
-    Shortcut { sequence: "S"; context: Qt.ApplicationShortcut; onActivated: if (win.player) win.player.toggleShuffle() }
-    Shortcut { sequence: "R"; context: Qt.ApplicationShortcut; onActivated: if (win.player) win.player.cycleLoop() }
-    Shortcut { sequence: "Tab"; context: Qt.ApplicationShortcut; onActivated: players.selectNext() }
-    Shortcut { sequence: "O"; context: Qt.ApplicationShortcut; onActivated: if (win.player) win.player.raise() }
+    Shortcut { sequence: "?"; enabled: !win.typing; context: Qt.ApplicationShortcut; onActivated: shortcuts.visible ? shortcuts.close() : shortcuts.open() }
+    Shortcut { sequence: ","; enabled: !win.typing; context: Qt.ApplicationShortcut; onActivated: preferences.visible ? preferences.close() : preferences.open() }
+    Shortcut { sequence: "Q"; enabled: !win.typing; context: Qt.ApplicationShortcut; onActivated: Qt.quit() }
+    Shortcut { sequence: "Space"; enabled: !win.typing; context: Qt.ApplicationShortcut; onActivated: if (win.player) win.player.playPause() }
+    Shortcut { sequences: ["N", "Ctrl+Right"]; enabled: !win.typing; context: Qt.ApplicationShortcut; onActivated: if (win.player) win.player.next() }
+    Shortcut { sequences: ["P", "Ctrl+Left"]; enabled: !win.typing; context: Qt.ApplicationShortcut; onActivated: if (win.player) win.player.previous() }
+    Shortcut { sequence: "Right"; enabled: !win.typing; context: Qt.ApplicationShortcut; onActivated: if (win.player) win.player.seekBy(10000) }
+    Shortcut { sequence: "Left"; enabled: !win.typing; context: Qt.ApplicationShortcut; onActivated: if (win.player) win.player.seekBy(-10000) }
+    Shortcut { sequence: "Up"; enabled: !win.typing; context: Qt.ApplicationShortcut; onActivated: if (win.player) win.player.setVolume(win.player.volume + 0.05) }
+    Shortcut { sequence: "Down"; enabled: !win.typing; context: Qt.ApplicationShortcut; onActivated: if (win.player) win.player.setVolume(win.player.volume - 0.05) }
+    Shortcut { sequence: "S"; enabled: !win.typing; context: Qt.ApplicationShortcut; onActivated: if (win.player) win.player.toggleShuffle() }
+    Shortcut { sequence: "R"; enabled: !win.typing; context: Qt.ApplicationShortcut; onActivated: if (win.player) win.player.cycleLoop() }
+    Shortcut { sequence: "Tab"; enabled: !win.typing; context: Qt.ApplicationShortcut; onActivated: players.selectNext() }
+    Shortcut { sequence: "Ctrl+F"; context: Qt.ApplicationShortcut; onActivated: search.visible ? search.close() : search.open() }
+    Shortcut { sequence: "/"; enabled: !win.typing; context: Qt.ApplicationShortcut; onActivated: search.open() }
+    Shortcut { sequence: "L"; enabled: !win.typing; context: Qt.ApplicationShortcut; onActivated: win.showLyrics = !win.showLyrics }
+    Shortcut { sequence: "O"; enabled: !win.typing; context: Qt.ApplicationShortcut; onActivated: if (win.player) win.player.raise() }
 
     // Right-to-left languages mirror the window; the Translator sets the
     // application's layout direction.
@@ -140,13 +161,26 @@ ApplicationWindow {
             }
             Item { Layout.fillWidth: true }
             GlassIconButton {
-                size: 38
+                size: 36
+                icon.source: "qrc:/icons/search.svg"
+                tip: qsTr("Search")
+                onClicked: search.open()
+            }
+            GlassIconButton {
+                size: 36
+                icon.source: "qrc:/icons/lyrics.svg"
+                tip: qsTr("Lyrics")
+                active: win.showLyrics
+                onClicked: win.showLyrics = !win.showLyrics
+            }
+            GlassIconButton {
+                size: 36
                 icon.source: "qrc:/icons/preferences.svg"
                 tip: qsTr("Preferences")
                 onClicked: preferences.open()
             }
             GlassIconButton {
-                size: 38
+                size: 36
                 icon.source: "qrc:/icons/keyboard.svg"
                 tip: qsTr("Shortcuts")
                 onClicked: shortcuts.open()
@@ -167,8 +201,8 @@ ApplicationWindow {
                 left: parent.left
                 right: parent.right
                 bottom: parent.bottom
-                leftMargin: 30
-                rightMargin: 30
+                leftMargin: win.width < 420 ? 20 : 30
+                rightMargin: win.width < 420 ? 20 : 30
                 topMargin: win.wide ? 18 : 24
                 bottomMargin: 26
             }
@@ -179,6 +213,7 @@ ApplicationWindow {
             // The cover, shrinking back a little while paused.
             Item {
                 id: cover
+                visible: !win.showLyrics
                 readonly property real side: win.wide
                     ? Math.min(nowPlaying.height - 20, nowPlaying.width * 0.48)
                     : Math.min(nowPlaying.width, nowPlaying.height * 0.5)
@@ -247,9 +282,18 @@ ApplicationWindow {
                 }
             }
 
+            LyricsView {
+                visible: win.showLyrics
+                player: win.player
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Layout.preferredWidth: win.wide ? cover.side : -1
+                Layout.bottomMargin: win.wide ? 0 : 18
+            }
+
             ColumnLayout {
                 Layout.fillWidth: true
-                Layout.fillHeight: !win.wide
+                Layout.fillHeight: !win.wide && !win.showLyrics
                 Layout.alignment: Qt.AlignVCenter
                 spacing: 0
 
@@ -322,7 +366,9 @@ ApplicationWindow {
                 RowLayout {
                     Layout.alignment: Qt.AlignHCenter
                     Layout.topMargin: 14
-                    spacing: 18
+                    // The five buttons are 270 wide; the gaps give way first
+                    // on a narrow window.
+                    spacing: Math.max(6, Math.min(18, (nowPlaying.width - 270) / 4))
 
                     GlassIconButton {
                         size: 40
@@ -401,7 +447,7 @@ ApplicationWindow {
                     }
                 }
 
-                Item { Layout.fillHeight: true; visible: !win.wide }
+                Item { Layout.fillHeight: true; visible: !win.wide && !win.showLyrics }
             }
         }
 
@@ -436,6 +482,17 @@ ApplicationWindow {
         id: preferences
         backdrop: root
         corner: win.corner
+        onConnectSpotify: {
+            close()
+            search.open()
+        }
+    }
+
+    SearchSheet {
+        id: search
+        backdrop: root
+        corner: win.corner
+        smallCorner: win.smallCorner
     }
 
     ShortcutSheet {

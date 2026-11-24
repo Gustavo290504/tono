@@ -15,6 +15,8 @@ class Theme : public QObject {
     Q_PROPERTY(QString background READ background NOTIFY changed)
     Q_PROPERTY(QString foreground READ foreground NOTIFY changed)
     Q_PROPERTY(QString muted READ muted NOTIFY changed)
+    // The theme's red, for errors.
+    Q_PROPERTY(QString danger READ danger NOTIFY changed)
     Q_PROPERTY(bool dark READ dark NOTIFY changed)
     Q_PROPERTY(int radius READ radius NOTIFY changed)
 
@@ -27,6 +29,7 @@ public:
     QString background() const { return m_background; }
     QString foreground() const { return m_foreground; }
     QString muted() const { return m_muted; }
+    QString danger() const { return m_danger; }
     bool dark() const { return m_dark; }
     int radius() const { return m_radius; }
 
@@ -46,6 +49,7 @@ private:
     QString m_background = "#0E0E10";
     QString m_foreground = "#F5F5F7";
     QString m_muted = "#8E8E93";
+    QString m_danger = "#FF453A";
     bool m_dark = true;
     QFileSystemWatcher m_watcher;
     QTimer m_debounce;
