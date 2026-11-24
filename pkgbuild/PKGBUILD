@@ -1,0 +1,24 @@
+pkgname=tono
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='A glassy now-playing window for Spotify and any MPRIS music player'
+arch=('x86_64' 'aarch64')
+license=('MIT')
+depends=('qt6-base' 'qt6-declarative' 'qt6-svg' 'qt6-wayland')
+makedepends=('gcc' 'make')
+optdepends=('spotify: the player Tono opens when nothing is playing')
+source=()
+sha256sums=()
+
+build() {
+  cd "$startdir/.."
+  ./bin/build
+}
+
+package() {
+  cd "$startdir/.."
+  install -Dm755 build/tono "$pkgdir/usr/bin/tono"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "$startdir/tono.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/tono.svg"
+  install -Dm644 "$startdir/tono.desktop" "$pkgdir/usr/share/applications/tono.desktop"
+}
